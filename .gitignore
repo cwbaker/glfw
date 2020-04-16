@@ -3,6 +3,9 @@ debug/
 release/
 shipping/
 
+# Forge local settings
+local_settings.lua
+
 # The canonical out-of-tree build subdirectory
 build
 
