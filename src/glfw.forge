@@ -1,0 +1,91 @@
+
+for _, cc in toolsets('^cc.*') do
+    local cc = cc:inherit {
+        warning_level = 1;
+    };
+
+    local defines = switch {
+        cc.settings.platform;
+        linux = {'_GLFW_X11'};
+        macos = {'_GLFW_COCOA'};
+        windows = {'_GLFW_WIN32'};
+    };
+
+    local glfw = cc:StaticLibrary '${lib}/glfw_${platform}_${architecture}' {
+        cc:Cc '${obj}/%1' {
+            defines = defines;
+            'context.c';
+            'init.c';
+            'input.c';
+            'monitor.c';
+            'vulkan.c';
+            'window.c';
+        };
+
+        cc:Cc '${obj}/%1' {
+            defines = defines;
+            'egl_context.c';
+            'osmesa_context.c';
+        };
+    };
+
+    if cc:platform_matches('windows') then
+        glfw {
+            cc:Cc '${obj}/%1' {
+                defines = defines;
+                'wgl_context.c';
+                'win32_init.c';
+                'win32_joystick.c';
+                'win32_monitor.c';
+                'win32_thread.c';
+                'win32_time.c';
+                'win32_window.c';
+            };
+        };
+    elseif cc:platform_matches('macos') then
+        glfw {
+            cc:ObjC '${obj}/%1' {
+                defines = defines;
+                'nsgl_context.m';
+            };
+            cc:Cc '${obj}/%1' {
+                defines = defines;
+                'cocoa_time.c';
+                'posix_thread.c';
+                'posix_time.c';
+            };
+        };
+    elseif cc:platform_matches('linux') then
+        glfw {
+            cc:Cc '${obj}/%1' {
+                defines = defines;
+                'glx_context.c';
+                'osmesa_context.c';
+                'posix_thread.c';
+                'posix_time.c';
+                'linux_joystick.c';
+                'x11_init.c';
+                'x11_monitor.c';
+                'x11_window.c';
+                'xkb_unicode.c';
+            };
+        };
+    else
+        glfw {
+            cc:Cc '${obj}/%1' {
+                defines = defines;
+                'null_init.c';
+                'null_joystick.c';
+                'null_monitor.c';
+                'null_window.c';
+                'osmesa_context.c';
+                'posix_thread.c';
+                'posix_time.c';
+            };
+        };
+    end
+
+    cc:all {
+        glfw;
+    };
+end
