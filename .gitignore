@@ -1,3 +1,8 @@
+# Forge variant build directories
+debug/
+release/
+shipping/
+
 # The canonical out-of-tree build subdirectory
 build
 
