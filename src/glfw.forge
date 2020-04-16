@@ -1,0 +1,170 @@
+local WaylandClientHeader = PatternRule('WaylandClientHeader');
+
+function WaylandClientHeader.build(toolset, target)
+    local wayland_scanner = toolset.wayland_scanner;
+    assert(wayland_scanner);
+    run(wayland_scanner, {
+        'wayland-scanner';
+        'client-header';
+        target:dependency(1):filename();
+        target:filename();
+    });
+end
+
+local WaylandPrivateCode = PatternRule('WaylandPrivateCode');
+
+function WaylandPrivateCode.build(toolset, target)
+    local wayland_scanner = toolset.wayland_scanner;
+    assert(wayland_scanner);
+    run(wayland_scanner, {
+        'wayland-scanner';
+        'private-code';
+        target:dependency(1):filename();
+        target:filename();
+    });
+end
+
+for _, cc in toolsets('^cc.*') do
+    local cc = cc:inherit {
+        warning_level = 1;
+        objc_arc = false;
+        include = root(('%s/include/glfw'):format(variant));
+        defines = switch {
+            cc.platform;
+            linux = { '_GLFW_WAYLAND'; '_GLFW_X11' };
+            macos = { '_GLFW_COCOA'; 'GL_SILENCE_DEPRECATION' };
+            windows = { '_GLFW_WIN32' };
+        };
+        WaylandClientHeader = WaylandClientHeader;
+        WaylandPrivateCode = WaylandPrivateCode;
+    };
+
+    local glfw = cc:StaticLibrary '${lib}/glfw_${platform}_${architecture}' {
+        cc:Cc '${obj}/%1' {
+            'context.c';
+            'init.c';
+            'input.c';
+            'monitor.c';
+            'platform.c';
+            'vulkan.c';
+            'window.c';
+        };
+
+        cc:Cc '${obj}/%1' {
+            'null_init.c';
+            'null_joystick.c';
+            'null_monitor.c';
+            'null_window.c';
+        };
+
+        cc:Cc '${obj}/%1' {
+            'egl_context.c';
+            'osmesa_context.c';
+        };
+    };
+
+    if cc:platform_matches('windows') then
+        glfw {
+            cc:Cc '${obj}/%1' {
+                'wgl_context.c';
+                'win32_init.c';
+                'win32_joystick.c';
+                'win32_module.c';
+                'win32_monitor.c';
+                'win32_thread.c';
+                'win32_time.c';
+                'win32_window.c';
+            };
+        };
+    elseif cc:platform_matches('macos') then
+        glfw {
+            cc:ObjC '${obj}/%1' {
+                'cocoa_init.m';
+                'cocoa_joystick.m';
+                'cocoa_monitor.m';
+                'cocoa_window.m';
+                'nsgl_context.m';
+            };
+            cc:Cc '${obj}/%1' {
+                'cocoa_time.c';
+                'posix_thread.c';
+            };
+        };
+    elseif cc:platform_matches('linux') then
+        pushd('../deps/wayland');
+        local wayland_private_code = cc:WaylandPrivateCode '${include}/%2-client-protocol-code.h' {
+            'wayland.xml';
+            'viewporter.xml';
+            'xdg-shell.xml';
+            'idle-inhibit-unstable-v1.xml';
+            'pointer-constraints-unstable-v1.xml';
+            'relative-pointer-unstable-v1.xml';
+            'fractional-scale-v1.xml';
+            'xdg-activation-v1.xml';
+            'xdg-decoration-unstable-v1.xml';
+        };
+
+        local wayland_client_headers = cc:WaylandClientHeader '${include}/%2-client-protocol.h' {
+            'wayland.xml';
+            'viewporter.xml';
+            'xdg-shell.xml';
+            'idle-inhibit-unstable-v1.xml';
+            'pointer-constraints-unstable-v1.xml';
+            'relative-pointer-unstable-v1.xml';
+            'fractional-scale-v1.xml';
+            'xdg-activation-v1.xml';
+            'xdg-decoration-unstable-v1.xml';
+        };
+        popd();
+
+        glfw {
+            cc:Cc '${obj}/%1' {
+                'glx_context.c';
+                'osmesa_context.c';
+                'posix_module.c';
+                'posix_poll.c';
+                'posix_thread.c';
+                'posix_time.c';
+                'linux_joystick.c';
+                'x11_init.c';
+                'x11_monitor.c';
+                'x11_window.c';
+                'xkb_unicode.c';
+            };
+
+            cc:Cc '${obj}/%1' {
+                include_directories = {
+                    cc:interpolate('${include}');
+                };
+                cc:SourceFile 'wl_init.c' {
+                    wayland_private_code;
+                    wayland_client_headers;
+                };
+                cc:SourceFile 'wl_monitor.c' {
+                    wayland_private_code;
+                    wayland_client_headers;
+                };
+                cc:SourceFile 'wl_window.c' {
+                    wayland_private_code;
+                    wayland_client_headers;
+                };
+            };
+        };
+    else
+        glfw {
+            cc:Cc '${obj}/%1' {
+                'null_init.c';
+                'null_joystick.c';
+                'null_monitor.c';
+                'null_window.c';
+                'osmesa_context.c';
+                'posix_thread.c';
+                'posix_time.c';
+            };
+        };
+    end
+
+    cc:all {
+        glfw;
+    };
+end
