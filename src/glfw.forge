@@ -2,12 +2,13 @@
 for _, cc in toolsets('^cc.*') do
     local cc = cc:inherit {
         warning_level = 1;
+        objc_arc = false;
     };
 
     local defines = switch {
         cc.settings.platform;
         linux = {'_GLFW_X11'};
-        macos = {'_GLFW_COCOA'};
+        macos = {'_GLFW_COCOA', 'GL_SILENCE_DEPRECATION'};
         windows = {'_GLFW_WIN32'};
     };
 
@@ -46,13 +47,16 @@ for _, cc in toolsets('^cc.*') do
         glfw {
             cc:ObjC '${obj}/%1' {
                 defines = defines;
+                'cocoa_init.m';
+                'cocoa_joystick.m';
+                'cocoa_monitor.m';
+                'cocoa_window.m';
                 'nsgl_context.m';
             };
             cc:Cc '${obj}/%1' {
                 defines = defines;
                 'cocoa_time.c';
                 'posix_thread.c';
-                'posix_time.c';
             };
         };
     elseif cc:platform_matches('linux') then
