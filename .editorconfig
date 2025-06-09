@@ -65,3 +65,11 @@ indent_size = 4
 indent_style = space
 indent_size = 2
 
+# For glfw.forge written in Lua
+[*.lua]
+indent_style = space
+indent_size = 4
+quote_style = none
+max_line_length = unset
+end_of_line = auto
+table_separator_style = semicolon
